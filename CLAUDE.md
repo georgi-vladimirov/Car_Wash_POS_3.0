@@ -27,7 +27,7 @@
 
 ### Основни модели (чернова)
 Location, Service, ServicePrice (по категория автомобил, обект, валидна от дата), Employee,
-Wash + WashItem, ExpenseCategory + Expense, CashShift + CashMovement,
+WorkDay, Wash + WashItem, ExpenseCategory + Expense, CashMovement,
 PayrollPeriod + PayrollEntry + Advance.
 
 ### Речник (български → код)
@@ -44,7 +44,9 @@ PayrollPeriod + PayrollEntry + Advance.
 | Обслужена кола | `Wash` |
 | Услуга в обслужването | `WashItem` |
 | Разход / категория разход | `Expense` / `ExpenseCategory` |
-| Смяна | `CashShift` |
+| Работен ден / смяна | `WorkDay` |
+| Отворил / приключил деня | `opened_by` / `closed_by` |
+| Приключен (ден) | `closed_at` (не е `null`) |
 | Касова операция | `CashMovement` |
 | Начално салдо | `opening_balance` |
 | Очаквано салдо | `expected_balance` |
@@ -61,10 +63,12 @@ PayrollPeriod + PayrollEntry + Advance.
 ### Правила за данните
 - Пари: винаги `DecimalField`, никога float. Валута: евро.
 - В `WashItem` се записва цената **към момента на продажбата** (старите отчети не се променят при нова ценова листа).
-- Каса и заплати: одит на промените (кой, кога, какво). Вместо изтриване – анулиране/сторниране.
-- Касата е вързана към **смяна** с начално и крайно салдо (очаквано спрямо реално преброено).
+- Без изтриване: анулиране чрез `is_active = False` (`objects` показва само активните, `all_objects` всички). Одит на деня с `opened_by` / `closed_by`; пълен одит (кой, кога, какво) по-късно с `django-simple-history`.
+- **Работен ден (`WorkDay`):** един на обект на дата (една смяна на ден, без работа след полунощ). Касиерът го **отваря** ръчно с начално салдо и го **приключва** с преброена сума (очаквано спрямо реално преброено). Приключеният ден е заключен.
+- Транзакциите (продажби, разходи, касови операции) сочат към `WorkDay` и нямат собствени `location` и `date`. Часът е в `date_created`.
+- Сървърни правила за деня: само един отворен ден на обект; нов ден не се отваря, ако предишният не е приключен; без запис в приключен ден; без бъдеща дата; датата при отваряне се слага от сървъра (`timezone.localdate()`); крайното салдо и разликата се записват при приключване.
 - Часова зона `Europe/Sofia`, `USE_TZ = True`.
-- **Права:** касиерът вижда и редактира само данните на своя обект. Един общ филтър по обект за всички querysets (миксин в `core`), не отделни проверки.
+- **Права:** касиерът вижда и редактира само данните на своя обект. Един общ филтър по обект за всички querysets (миксин в `core`), не отделни проверки. За транзакциите филтърът е през `workday__location`.
 - Всяка валидация (блокирани дати, права, суми) се прави и на сървъра. Интерфейсът не е защита.
 
 ## Структура
@@ -75,8 +79,11 @@ static/src/app.css       вход за Tailwind (@import "tailwindcss"; @plugin 
 static/js/components/    dataTable.js, datePicker.js (Alpine компоненти)
 static/vendor/           htmx, alpine, flatpickr (локално, не от CDN)
 apps/core/               миксини, template tags (|money, |bgdate), context processors
-apps/accounts, locations, catalog, staff, sales, expenses, cashbook, payroll
+apps/core/models/        пакет: base.py (BaseModel, ActiveManager), location.py (Location); всеки модел се изнася в __init__.py
+apps/workdays/           WorkDay (отваряне/приключване на деня)
+apps/accounts, catalog, staff, sales, expenses, cashbook, payroll
 ```
+Зависимости: `core` → `accounts` → `workdays` → `sales`, `expenses`, `cashbook`. Без обратни импорти; препратки с низ (`"workdays.WorkDay"`).
 Шаблони на приложение: `apps/<app>/templates/<app>/` (папка със същото име).
 
 ## Конвенции за фронтенда
@@ -95,13 +102,14 @@ apps/accounts, locations, catalog, staff, sales, expenses, cashbook, payroll
 
 ### Календар (Flatpickr)
 `locale: 'bg'`, `altInput: true`, `altFormat: 'd.m.Y'`, `dateFormat: 'Y-m-d'`, период с `mode: 'range'`,
-блокирани дати с `disable: [...]`, `minDate`/`maxDate`. Блокираните дати идват от базата (`json_script`).
+блокирани дати с `disable: [...]`, `minDate`/`maxDate`. Блокираните дати идват от базата (`json_script`): приключените `WorkDay` на обекта.
 
 ## Ред на работа
 1. Скелет: проект, PostgreSQL, потребители и роли, обекти
 2. Каталог: услуги, цени, служители
-3. Панел „Коли“ (най-често ползван, трябва да е бърз: малко кликове, автоматични цени)
-4. Каса и смени → 5. Разходи → 6. Заплати → 7. Справки
+3. Работен ден: отваряне и приключване (нужен е преди всички транзакции)
+4. Панел „Коли“ (най-често ползван, трябва да е бърз: малко кликове, автоматични цени)
+5. Каса → 6. Разходи → 7. Заплати → 8. Справки
 
 ## Прототипи на дизайна
 В `docs/prototypes/` (ако са добавени): `wash_panel.html` (панел „Нова кола“), `expenses_calendar.html` (Flatpickr, период, блокирани дати), `data_table.html` (сорт/филтър/CSV). Само за визуална и поведенческа ориентация. Работещите версии се пишат в Django шаблони.
