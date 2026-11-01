@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Виртуална среда
+.venv/
+venv/
+
+# Тайни и локални настройки
+.env
+.env.*
+!.env.example
+
+# Django
+db.sqlite3
+media/
+staticfiles/
+*.log
+
+# Tailwind / Node
+node_modules/
+static/dist/
+
+# Редактори и ОС
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
+
+# Тестове
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Claude Code (локални настройки)
+.claude/settings.local.json
