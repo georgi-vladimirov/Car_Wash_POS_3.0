@@ -18,7 +18,7 @@
 - Django + PostgreSQL
 - Фронтенд без API: HTML шаблони + **HTMX** (частични обновявания чрез Django views) + **Alpine.js** (поведение в браузъра) + **Tailwind CSS v4** + **DaisyUI v5**
 - Календар: **Flatpickr** (български език, формат на показване `d.m.Y`, към сървъра `Y-m-d`)
-- Пакети: `django-htmx`, `django-filter`; по желание `django-simple-history` (одит), `django-widget-tweaks`
+- Пакети: `django-htmx`, `django-filter`, `django-simple-history` (одит, пази и изтритите записи); по желание `django-widget-tweaks`
 - Не се ползва REST API и JavaScript фреймуърк (React/Vue).
 
 ## Предметна област
@@ -35,12 +35,21 @@ PayrollPeriod + PayrollEntry + Advance.
 
 | Български | В кода |
 |---|---|
-| Обект / автомивка | `Location` |
+| Локация (обект, автомивка); в интерфейса винаги „Локация“ | `Location` |
 | Касиер / собственик | `cashier` / `owner` (роли) |
+| Кратко име / код (локация, служител) | `short_name` |
 | Услуга | `Service` |
+| Вид услуга | `ServiceCategory` |
+| Макс. услуги от вида в едно обслужване | `max_per_wash` |
 | Цена на услуга (ценова листа) | `ServicePrice` |
 | Категория автомобил | `VehicleCategory` |
+| Марка автомобил | `VehicleBrand` |
 | Служител | `Employee` |
+| Длъжност | `EmployeePosition` |
+| Процент заплата / бонус | `salary_percentage` / `bonus_percentage` |
+| Абонат (фирмен клиент) | `Subscriber` |
+| ЕИК | `company_id` |
+| Отстъпка | `discount_percentage` |
 | Обслужена кола | `Wash` |
 | Услуга в обслужването | `WashItem` |
 | Разход / категория разход | `Expense` / `ExpenseCategory` |
@@ -63,7 +72,35 @@ PayrollPeriod + PayrollEntry + Advance.
 ### Правила за данните
 - Пари: винаги `DecimalField`, никога float. Валута: евро.
 - В `WashItem` се записва цената **към момента на продажбата** (старите отчети не се променят при нова ценова листа).
-- Без изтриване: анулиране чрез `is_active = False` (`objects` показва само активните, `all_objects` всички). Одит на деня с `opened_by` / `closed_by`; пълен одит (кой, кога, какво) по-късно с `django-simple-history`.
+- Същото за процентите: отстъпката на абоната се копира в `Wash`, процентите заплата/бонус се копират в записа за заплата при изчислението. В `Employee` и `Subscriber` стоят само текущите стойности.
+- Проценти: `DecimalField(max_digits=5, decimal_places=2)`, записват се като 30 = 30% (не 0.30), с `CheckConstraint` 0–100.
+- `max_per_wash` се проверява на сървъра при запис на измиването; в интерфейса е само удобство.
+- **Изтриване за грешки, `is_active` за архив:**
+  - Истинско изтриване (`delete()`) е само за грешно въведени записи без зависимости (напр. грешна кола в отворен ден, без плащане).
+  - Справочен запис с история (услуга, цена, служител) не може да се изтрие (`PROTECT`) – деактивира се с `is_active = False` и спира да излиза във формите.
+  - `objects` показва само активните, `all_objects` всички.
+  - Одит на деня с `opened_by` / `closed_by`; пълен одит (кой, кога, какво, вкл. изтритите записи) с `django-simple-history`.
+- **Правила за `on_delete`** (решават веригите при изтриване; Django проверява цялата верига и при един `PROTECT` не изтрива нищо):
+  - **Принадлежност** (детето няма смисъл без родителя) → `CASCADE`.
+  - **Употреба** (транзакция ползва справочен запис, или плащане сочи към транзакция) → `PROTECT`.
+  - Карта:
+    ```
+    ServiceCategory ─CASCADE─▶ Service ─CASCADE─▶ ServicePrice
+    Location ────────CASCADE─▶ ServicePrice, Employee
+    VehicleCategory ─CASCADE─▶ ServicePrice
+    EmployeePosition ─PROTECT─▶ Employee
+    Wash ────────PROTECT─▶ WorkDay, Employee, VehicleCategory, Location...
+    WashItem ────CASCADE─▶ Wash;  PROTECT─▶ ServicePrice, Service
+    Payment ─────PROTECT─▶ Wash          (платено измиване не се трие)
+    SalaryEntry ─CASCADE─▶ Wash          (изработката се трие с измиването)
+    SalaryPayment PROTECT─▶ SalaryEntry  (изплатена заплата блокира веригата)
+    ```
+    (стрелката: от модела с `ForeignKey` към модела, към който сочи)
+  - Нов модел: за всеки `ForeignKey` се избира принадлежност или употреба и се добавя в картата.
+  - Без собствени `delete()` в моделите – не се извикват при `QuerySet.delete()` и при каскада.
+- **Заключен ден:** моделите с ден наследяват абстрактния `WorkDayBoundModel` (`core/models/base.py`, поле `workday`). Един сигнал `pre_save` / `pre_delete` в `core/signals.py` забранява промяна и изтриване, ако денят е приключен (хваща и админа, и каскадите).
+- Грешката `ProtectedError` се превежда за потребителя на едно място (общ helper в `core`), не във всяко view.
+- Всяка верига при изтриване има тест (напр. „вид услуга с цена в измиване не се трие“).
 - **Работен ден (`WorkDay`):** един на обект на дата (една смяна на ден, без работа след полунощ). Касиерът го **отваря** ръчно с начално салдо и го **приключва** с преброена сума (очаквано спрямо реално преброено). Приключеният ден е заключен.
 - Транзакциите (продажби, разходи, касови операции) сочат към `WorkDay` и нямат собствени `location` и `date`. Часът е в `date_created`.
 - Сървърни правила за деня: само един отворен ден на обект; нов ден не се отваря, ако предишният не е приключен; без запис в приключен ден; без бъдеща дата; датата при отваряне се слага от сървъра (`timezone.localdate()`); крайното салдо и разликата се записват при приключване.
@@ -79,7 +116,8 @@ static/src/app.css       вход за Tailwind (@import "tailwindcss"; @plugin 
 static/js/components/    dataTable.js, datePicker.js (Alpine компоненти)
 static/vendor/           htmx, alpine, flatpickr (локално, не от CDN)
 apps/core/               миксини, template tags (|money, |bgdate), context processors
-apps/core/models/        пакет: base.py (BaseModel, ActiveManager), location.py (Location); всеки модел се изнася в __init__.py
+apps/core/models/        пакет: base.py (BaseModel, ActiveManager, WorkDayBoundModel), core.py (Location, каталог, служители, абонати); всеки модел се изнася в __init__.py
+apps/core/signals.py     защита на приключен ден (pre_save / pre_delete)
 apps/workdays/           WorkDay (отваряне/приключване на деня)
 apps/accounts, catalog, staff, sales, expenses, cashbook, payroll
 ```

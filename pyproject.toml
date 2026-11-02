@@ -1,0 +1,7 @@
+[tool.ruff]
+extend-exclude = ["**/migrations/**"]
+
+[tool.ruff.lint]
+extend-select = ["I"]
+# Django class attributes (Meta, admin, forms) are lists by convention
+ignore = ["RUF012"]

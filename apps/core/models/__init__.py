@@ -1,4 +1,26 @@
 from .base import ActiveManager, BaseModel
-from .core import Location
+from .core import (
+    Employee,
+    EmployeePosition,
+    Location,
+    Service,
+    ServiceCategory,
+    ServicePrice,
+    Subscriber,
+    VehicleBrand,
+    VehicleCategory,
+)
 
-__all__ = ["ActiveManager", "BaseModel", "Location"]
+__all__ = [
+    "ActiveManager",
+    "BaseModel",
+    "Employee",
+    "EmployeePosition",
+    "Location",
+    "Service",
+    "ServiceCategory",
+    "ServicePrice",
+    "Subscriber",
+    "VehicleBrand",
+    "VehicleCategory",
+]
