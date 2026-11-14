@@ -1,0 +1,9 @@
+@import "tailwindcss" source(none);
+
+@source "../../templates";
+@source "../../apps";
+@source "../js";
+
+@plugin "./daisyui.mjs" {
+  themes: light --default;
+}

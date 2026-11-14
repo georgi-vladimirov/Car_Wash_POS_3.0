@@ -1,0 +1,27 @@
+{% load static %}<!DOCTYPE html>
+<html lang="bg" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{% endblock %} · Wash Depot</title>
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+
+  {# Deferred scripts run in document order; Alpine must be last so components register first #}
+  <script src="{% static 'vendor/htmx.min.js' %}" defer></script>
+  {# <script src="{% static 'js/app.js' %}" defer></script> — enable once app.js exists #}
+  {% block extra_js %}{% endblock %}
+  <script src="{% static 'vendor/alpine.min.js' %}" defer></script>
+</head>
+<body class="min-h-screen bg-base-200"
+      hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+  {% if user.is_authenticated %}
+    {% include "partials/_navbar.html" %}
+  {% endif %}
+
+  <div id="messages">{% include "partials/_messages.html" %}</div>
+
+  <main class="container mx-auto px-4 py-6">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

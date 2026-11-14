@@ -34,3 +34,6 @@ htmlcov/
 
 # Claude Code (локални настройки)
 .claude/settings.local.json
+
+tools/
+static/css/app.css

@@ -1,0 +1,56 @@
+{# Links are "#" until the views exist: {% url %} to a missing route breaks every page #}
+{% with url_name=request.resolver_match.url_name %}
+<nav class="navbar bg-base-100 shadow-sm px-4">
+  <div class="navbar-start">
+    <a href="/" class="text-xl font-bold">Wash Depot</a>
+  </div>
+
+  <div class="navbar-center">
+    <ul class="menu menu-horizontal gap-1">
+      <li><a href="#" class="{% if url_name == 'wash_list' %}menu-active{% endif %}">Коли</a></li>
+      <li><a href="#" class="{% if url_name == 'expense_list' %}menu-active{% endif %}">Разходи</a></li>
+      <li><a href="#" class="{% if url_name == 'cash_movement_list' %}menu-active{% endif %}">Каса</a></li>
+      <li><a href="#" class="{% if url_name == 'payroll_list' %}menu-active{% endif %}">Заплати</a></li>
+      {% if user.is_owner %}
+        <li>
+          <details x-data @click.outside="$el.removeAttribute('open')">
+            <summary>Справочници</summary>
+            <ul class="bg-base-100 rounded-box z-10 w-48 p-2 shadow">
+              <li><a href="#">Услуги</a></li>
+              <li><a href="#">Цени</a></li>
+              <li><a href="#">Служители</a></li>
+              <li><a href="#">Абонати</a></li>
+              <li><a href="#">Локации</a></li>
+              <li><a href="#">Потребители</a></li>
+            </ul>
+          </details>
+        </li>
+      {% endif %}
+    </ul>
+  </div>
+
+  <div class="navbar-end gap-3">
+    {# Placeholder: real location and workday status will come from a context processor #}
+    <span class="text-sm">
+      {% if user.is_owner %}Всички локации{% else %}{{ user.location.name }}{% endif %}
+    </span>
+    <span class="badge badge-ghost">Няма отворен ден</span>
+
+    <ul class="menu menu-horizontal">
+      <li>
+        <details x-data @click.outside="$el.removeAttribute('open')">
+          <summary>{{ user }}</summary>
+          <ul class="bg-base-100 rounded-box z-10 w-40 p-2 shadow right-0">
+            <li>
+              <form method="post" action="{% url 'logout' %}">
+                {% csrf_token %}
+                <button type="submit" class="w-full text-left">Изход</button>
+              </form>
+            </li>
+          </ul>
+        </details>
+      </li>
+    </ul>
+  </div>
+</nav>
+{% endwith %}
