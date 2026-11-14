@@ -55,8 +55,8 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "simple_history.middleware.HistoryRequestMiddleware",
-    # Enable once apps/core/middleware.py exists; must stay below HtmxMiddleware
-    # "apps.core.middleware.HtmxLoginRedirectMiddleware",
+    # Must stay below HtmxMiddleware (uses request.htmx)
+    "apps.core.middleware.HtmxLoginRedirectMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -118,6 +118,9 @@ LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "login"
 
+# Session: expires after 12 hours without activity (one shift on a shared cash desk PC)
+SESSION_COOKIE_AGE = 60 * 60 * 2
+SESSION_SAVE_EVERY_REQUEST = True
 
 # Internationalization
 # https://docs.djangoproject.com/en/6.1/topics/i18n/

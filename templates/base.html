@@ -8,7 +8,7 @@
 
   {# Deferred scripts run in document order; Alpine must be last so components register first #}
   <script src="{% static 'vendor/htmx.min.js' %}" defer></script>
-  {# <script src="{% static 'js/app.js' %}" defer></script> — enable once app.js exists #}
+  <script src="{% static 'js/app.js' %}" defer></script>
   {% block extra_js %}{% endblock %}
   <script src="{% static 'vendor/alpine.min.js' %}" defer></script>
 </head>
